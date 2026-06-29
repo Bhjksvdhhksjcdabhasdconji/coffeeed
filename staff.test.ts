@@ -19,7 +19,7 @@ describe("staff", () => {
       const ctx = createPublicContext();
       const caller = appRouter.createCaller(ctx);
 
-      const staffPassword = process.env.STAFF_PASSWORD || "staff123";
+      const staffPassword = process.env.STAFF_PASSWORD || "Secretcafe";
       const result = await caller.staff.verifyPassword({ password: staffPassword });
 
       expect(result).toBeDefined();
