@@ -1,104 +1,164 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>Cafe Order</title>
-    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
-    <style>
-        body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial; padding: 2rem; }
-        button { padding: 20px; font-size: 20px; }
-        #status { margin-top: 1rem; color: #666; }
-    </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>密cafe - Order System</title>
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <h2 id="tableDisplay">Loading...</h2>
-    <button id="orderBtn">Order Latte</button>
-    <div id="status" aria-live="polite"></div>
+    <!-- Home Page -->
+    <div id="homePage" class="page active">
+        <div class="home-container">
+            <div class="header">
+                <h1>密cafe</h1>
+                <p>Welcome take ur time:)</p>
+            </div>
 
-    <script>
-        // ======= IMPORTANT =======
-        // Replace the firebaseConfig object below with your Firebase project's config
-        // from the Firebase console (Project settings -> General -> Your apps).
-        // Example:
-        // const firebaseConfig = {
-        //   apiKey: "...",
-        //   authDomain: "...",
-        //   projectId: "...",
-        //   storageBucket: "...",
-        //   messagingSenderId: "...",
-        //   appId: "..."
-        // };
-        // =========================
+            <div class="cards-container">
+                <!-- Ordering Card -->
+                <button class="card-button" onclick="navigateTo('orderingPage')">
+                    <div class="card">
+                        <div class="card-icon">☕</div>
+                        <h2>下單</h2>
+                        <p>Self ordering</p>
+                    </div>
+                </button>
 
-        const firebaseConfig = { /* YOUR CONFIG FROM FIREBASE CONSOLE */ };
+                <!-- Dashboard Card -->
+                <button class="card-button" onclick="showPasswordDialog()">
+                    <div class="card">
+                        <div class="card-icon">📊</div>
+                        <h2>View Dashboard Staff</h2>
+                        <p>Real-time order tracking</p>
+                    </div>
+                </button>
+            </div>
 
-        function isConfigPopulated(cfg) {
-            if (!cfg || Object.keys(cfg).length === 0) return false;
-            // crude check to ensure the user replaced the placeholder
-            const joined = Object.values(cfg).join('');
-            return !joined.includes('YOUR_CONFIG') && joined.length > 10;
-        }
+            <div class="features">
+                <div class="feature">
+                    <span class="checkmark">✓</span>
+                    <p>Instant order placement</p>
+                </div>
+                <div class="feature">
+                    <span class="checkmark">✓</span>
+                    <p>Real-time updates</p>
+                </div>
+                <div class="feature">
+                    <span class="checkmark">✓</span>
+                    <p>Persistent storage</p>
+                </div>
+            </div>
+        </div>
+    </div>
 
-        const orderBtn = document.getElementById('orderBtn');
-        const tableDisplay = document.getElementById('tableDisplay');
-        const statusEl = document.getElementById('status');
+    <!-- Ordering Page -->
+    <div id="orderingPage" class="page">
+        <div class="ordering-container">
+            <div class="ordering-header">
+                <h1>Café Ordering</h1>
+                <p>Select an item to place an order</p>
+                <button class="back-button" onclick="navigateTo('homePage')">← Back</button>
+            </div>
 
-        // Get table from URL and sanitize to avoid XSS
-        const urlParams = new URLSearchParams(window.location.search);
-        const rawTable = urlParams.get('table') || 'Unknown';
-        function sanitize(str) {
-            if (typeof str !== 'string') return '';
-            // limit length and remove suspicious characters
-            const truncated = str.slice(0, 64);
-            return truncated.replace(/[<>"'`]/g, '');
-        }
-        const table = sanitize(rawTable);
-        tableDisplay.textContent = 'Table: ' + table;
+            <div class="ordering-buttons">
+                <!-- Latte Button -->
+                <button class="order-button latte-button" onclick="placeOrder('Latte')">
+                    <div class="order-icon">☕</div>
+                    <span>心形圖案Latte</span>
+                </button>
 
-        if (!isConfigPopulated(firebaseConfig)) {
-            // If config is not set, disable ordering and show instructions
-            statusEl.textContent = 'Firebase not configured. Paste your firebaseConfig into index.html to enable ordering.';
-            orderBtn.disabled = true;
-        } else {
-            // Initialize Firebase and Firestore
-            try {
-                firebase.initializeApp(firebaseConfig);
-                var db = firebase.firestore();
-            } catch (err) {
-                statusEl.textContent = 'Failed to initialize Firebase: ' + err.message;
-                orderBtn.disabled = true;
-            }
-        }
+                <!-- Heart Art Button -->
+                <button class="order-button heart-button" onclick="placeOrder('Heart Art')">
+                    <div class="order-icon">❤️</div>
+                    <span>兩個心圖案的latte</span>
+                </button>
+            </div>
 
-        async function orderLatte() {
-            if (!db) {
-                alert('Database not initialized. Check firebaseConfig in this file.');
-                return;
-            }
+            <div id="submittingIndicator" class="submitting-indicator" style="display: none;">
+                <div class="pulse"></div>
+                <span>Submitting order...</span>
+            </div>
+        </div>
+    </div>
 
-            orderBtn.disabled = true;
-            statusEl.textContent = 'Placing order...';
+    <!-- Dashboard Page -->
+    <div id="dashboardPage" class="page">
+        <div class="dashboard-container">
+            <div class="dashboard-header">
+                <div>
+                    <h1>Order Dashboard</h1>
+                    <p>Real-time order tracking</p>
+                </div>
+                <div class="dashboard-buttons">
+                    <button class="btn btn-outline" onclick="refreshOrders()">🔄 Refresh</button>
+                    <button class="btn btn-primary" onclick="navigateTo('orderingPage')">New Order</button>
+                    <button class="btn btn-outline" onclick="logout()">Logout</button>
+                </div>
+            </div>
 
-            try {
-                await db.collection('orders').add({
-                    item: 'Latte',
-                    table: table,
-                    timestamp: firebase.firestore.FieldValue.serverTimestamp()
-                });
-                statusEl.textContent = 'Latte ordered for table ' + table + '!';
-                alert('Latte ordered for table ' + table);
-            } catch (err) {
-                console.error('Order failed', err);
-                statusEl.textContent = 'Order failed: ' + (err.message || err);
-                alert('Could not place order: ' + (err.message || err));
-            } finally {
-                orderBtn.disabled = false;
-            }
-        }
+            <!-- Active Orders Section -->
+            <div class="orders-section">
+                <div class="section-header">
+                    <div class="badge">Active Orders: <span id="activeCount">0</span></div>
+                </div>
 
-        orderBtn.addEventListener('click', orderLatte);
-    </script>
+                <div id="activeOrdersContainer" class="orders-grid">
+                    <div class="empty-state">
+                        <div class="empty-icon">☕</div>
+                        <p>No active orders. Start taking orders to see them here.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Completed Orders Section -->
+            <div id="completedSection" class="orders-section" style="display: none;">
+                <div class="section-header">
+                    <div class="badge">Completed Orders: <span id="completedCount">0</span></div>
+                </div>
+
+                <div id="completedOrdersContainer" class="orders-grid">
+                </div>
+            </div>
+
+            <!-- Live Updates Indicator -->
+            <div class="live-indicator">
+                <div class="pulse-dot"></div>
+                <span>Live updates enabled</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Password Dialog -->
+    <div id="passwordDialog" class="modal" style="display: none;">
+        <div class="modal-content">
+            <h2>Staff Access</h2>
+            <p>Enter password to access the dashboard</p>
+            <input type="password" id="passwordInput" placeholder="Enter password" onkeypress="if(event.key==='Enter') verifyPassword()">
+            <div id="passwordError" class="error-message" style="display: none;"></div>
+            <div class="modal-buttons">
+                <button class="btn btn-primary" onclick="verifyPassword()">Access Dashboard</button>
+                <button class="btn btn-outline" onclick="closePasswordDialog()">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Order Confirmation Popup -->
+    <div id="confirmationPopup" class="confirmation-popup" style="display: none;">
+        <div class="confirmation-content">
+            <div class="success-icon">✓</div>
+            <div class="order-number-label">Order Number</div>
+            <div class="order-number" id="confirmationOrderNumber">#0</div>
+            <div class="order-item" id="confirmationOrderItem">Item</div>
+            <p class="confirmation-message">Order Confirmed!</p>
+            <p class="confirmation-subtext">Your order has been placed successfully</p>
+        </div>
+        <div id="confettiContainer" class="confetti-container"></div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="toast"></div>
+
+    <script src="app.js"></script>
 </body>
 </html>
