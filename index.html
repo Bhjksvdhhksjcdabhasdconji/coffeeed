@@ -1,30 +1,104 @@
 <!DOCTYPE html>
 <html>
 <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
     <title>Cafe Order</title>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+    <style>
+        body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial; padding: 2rem; }
+        button { padding: 20px; font-size: 20px; }
+        #status { margin-top: 1rem; color: #666; }
+    </style>
 </head>
 <body>
     <h2 id="tableDisplay">Loading...</h2>
-    <button onclick="orderLatte()" style="padding: 20px; font-size: 20px;">Order Latte</button>
+    <button id="orderBtn">Order Latte</button>
+    <div id="status" aria-live="polite"></div>
 
     <script>
+        // ======= IMPORTANT =======
+        // Replace the firebaseConfig object below with your Firebase project's config
+        // from the Firebase console (Project settings -> General -> Your apps).
+        // Example:
+        // const firebaseConfig = {
+        //   apiKey: "...",
+        //   authDomain: "...",
+        //   projectId: "...",
+        //   storageBucket: "...",
+        //   messagingSenderId: "...",
+        //   appId: "..."
+        // };
+        // =========================
+
         const firebaseConfig = { /* YOUR CONFIG FROM FIREBASE CONSOLE */ };
-        firebase.initializeApp(firebaseConfig);
-        const db = firebase.firestore();
 
-        const urlParams = new URLSearchParams(window.location.search);
-        const table = urlParams.get('table') || "Unknown";
-        document.getElementById("tableDisplay").innerText = "Table: " + table;
-
-        function orderLatte() {
-            db.collection("orders").add({
-                item: "Latte",
-                table: table,
-                timestamp: firebase.firestore.FieldValue.serverTimestamp()
-            }).then(() => alert("Latte ordered for table " + table));
+        function isConfigPopulated(cfg) {
+            if (!cfg || Object.keys(cfg).length === 0) return false;
+            // crude check to ensure the user replaced the placeholder
+            const joined = Object.values(cfg).join('');
+            return !joined.includes('YOUR_CONFIG') && joined.length > 10;
         }
+
+        const orderBtn = document.getElementById('orderBtn');
+        const tableDisplay = document.getElementById('tableDisplay');
+        const statusEl = document.getElementById('status');
+
+        // Get table from URL and sanitize to avoid XSS
+        const urlParams = new URLSearchParams(window.location.search);
+        const rawTable = urlParams.get('table') || 'Unknown';
+        function sanitize(str) {
+            if (typeof str !== 'string') return '';
+            // limit length and remove suspicious characters
+            const truncated = str.slice(0, 64);
+            return truncated.replace(/[<>"'`]/g, '');
+        }
+        const table = sanitize(rawTable);
+        tableDisplay.textContent = 'Table: ' + table;
+
+        if (!isConfigPopulated(firebaseConfig)) {
+            // If config is not set, disable ordering and show instructions
+            statusEl.textContent = 'Firebase not configured. Paste your firebaseConfig into index.html to enable ordering.';
+            orderBtn.disabled = true;
+        } else {
+            // Initialize Firebase and Firestore
+            try {
+                firebase.initializeApp(firebaseConfig);
+                var db = firebase.firestore();
+            } catch (err) {
+                statusEl.textContent = 'Failed to initialize Firebase: ' + err.message;
+                orderBtn.disabled = true;
+            }
+        }
+
+        async function orderLatte() {
+            if (!db) {
+                alert('Database not initialized. Check firebaseConfig in this file.');
+                return;
+            }
+
+            orderBtn.disabled = true;
+            statusEl.textContent = 'Placing order...';
+
+            try {
+                await db.collection('orders').add({
+                    item: 'Latte',
+                    table: table,
+                    timestamp: firebase.firestore.FieldValue.serverTimestamp()
+                });
+                statusEl.textContent = 'Latte ordered for table ' + table + '!';
+                alert('Latte ordered for table ' + table);
+            } catch (err) {
+                console.error('Order failed', err);
+                statusEl.textContent = 'Order failed: ' + (err.message || err);
+                alert('Could not place order: ' + (err.message || err));
+            } finally {
+                orderBtn.disabled = false;
+            }
+        }
+
+        orderBtn.addEventListener('click', orderLatte);
     </script>
 </body>
 </html>
